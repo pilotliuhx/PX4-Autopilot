@@ -1,5 +1,0 @@
-menuconfig MODULES_LHX_TEST
-	bool "lhx_test"
-	default n
-	---help---
-		Enable support for lhx_test
