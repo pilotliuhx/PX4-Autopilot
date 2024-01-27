@@ -4,6 +4,9 @@
 #include <px4_platform_common/module_params.h>
 #include <uORB/SubscriptionInterval.hpp>
 #include <uORB/topics/parameter_update.h>
+#include <uORB/topics/trajectory_setpoint_lhx.h>
+#include <uORB/topics/position_setpoint.h>
+#include <uORB/topics/yaw_estimator_status.h>
 
 using namespace time_literals;
 

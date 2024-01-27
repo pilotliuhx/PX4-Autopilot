@@ -232,10 +232,16 @@ void Navigator::run()
 		// Handle Vehicle commands
 		int vehicle_command_updates = 0;
 
+		if(_trajectory_setpoint_lhx_sub.update(&_setpoint_lhx))
+		{
+			// PX4_INFO("get a message");
+			position_setpoint_triplet_s *target = get_reposition_triplet();
+			memcpy(target, &_setpoint_lhx, sizeof(_setpoint_lhx));
+			set_position_setpoint_triplet_updated();
+		}
 		while (_vehicle_command_sub.updated() && (vehicle_command_updates < vehicle_command_s::ORB_QUEUE_LENGTH)) {
 			vehicle_command_updates++;
 			const unsigned last_generation = _vehicle_command_sub.get_last_generation();
-
 			vehicle_command_s cmd{};
 			_vehicle_command_sub.copy(&cmd);
 

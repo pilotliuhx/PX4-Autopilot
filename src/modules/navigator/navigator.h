@@ -81,6 +81,8 @@
 #include <uORB/topics/mode_completed.h>
 #include <uORB/uORB.h>
 
+#include <uORB/topics/trajectory_setpoint_lhx.h>
+
 using namespace time_literals;
 
 /**
@@ -312,6 +314,9 @@ private:
 	int _local_pos_sub{-1};
 	int _mission_sub{-1};
 	int _vehicle_status_sub{-1};
+
+	uORB::Subscription _trajectory_setpoint_lhx_sub{ORB_ID(trajectory_setpoint_lhx)};
+	trajectory_setpoint_lhx_s _setpoint_lhx;
 
 	uORB::SubscriptionData<position_controller_status_s>	_position_controller_status_sub{ORB_ID(position_controller_status)};
 

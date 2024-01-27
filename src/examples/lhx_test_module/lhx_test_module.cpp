@@ -5,9 +5,10 @@
 #include <px4_platform_common/log.h>
 #include <px4_platform_common/posix.h>
 
-#include <uORB/topics/parameter_update.h>
-#include <uORB/topics/sensor_combined.h>
+#include <drivers/drv_hrt.h>
 
+#include <uORB/topics/parameter_update.h>
+#include <uORB/topics/vehicle_global_position.h>
 
 int LhxTestModule::print_status()
 {
@@ -106,11 +107,19 @@ LhxTestModule::LhxTestModule(int example_param, bool example_flag)
 void LhxTestModule::run()
 {
 	// Example: run the loop synchronized to the sensor_combined topic publication
-	int sensor_combined_sub = orb_subscribe(ORB_ID(sensor_combined));
+	int global_pos_sub = orb_subscribe(ORB_ID(vehicle_global_position));
+	orb_set_interval(global_pos_sub, 500);
 
-	px4_pollfd_struct_t fds[1];
-	fds[0].fd = sensor_combined_sub;
+	int yaw_sub = orb_subscribe(ORB_ID(yaw_estimator_status));
+	trajectory_setpoint_lhx_s target{};
+	// memset(&target, 0, sizeof(target));
+	orb_advert_t trajectory_pub = orb_advertise(ORB_ID(trajectory_setpoint_lhx), &target);
+
+	px4_pollfd_struct_t fds[2];
+	fds[0].fd = global_pos_sub;
 	fds[0].events = POLLIN;
+	fds[1].fd = yaw_sub;
+	fds[1].events = POLLIN;
 
 	// initialize parameters
 	parameters_update(true);
@@ -131,16 +140,52 @@ void LhxTestModule::run()
 
 		} else if (fds[0].revents & POLLIN) {
 
-			struct sensor_combined_s sensor_combined;
-			orb_copy(ORB_ID(sensor_combined), sensor_combined_sub, &sensor_combined);
-			// TODO: do something with the data...
+			vehicle_global_position_s g_pos;
+			orb_copy(ORB_ID(vehicle_global_position), global_pos_sub, &g_pos);
 
+			yaw_estimator_status_s yaw_status;
+			orb_copy(ORB_ID(yaw_estimator_status), yaw_sub, &yaw_status);
+
+			// TODO: do something with the data...
+			target.previous.yaw = yaw_status.yaw[0];
+			target.previous.lat = g_pos.lat;
+			target.previous.lon = g_pos.lon;
+			target.previous.alt = g_pos.alt;
+			// target.previous.loiter_radius = 80.0;
+			// target.previous.acceptance_radius = 2.0;
+			// target.previous.cruising_speed = -1.0;
+			// target.previous.cruising_throttle = NAN;
+			// target.previous.valid = false;
+			// target.previous.type = position_setpoint_s::SETPOINT_TYPE_IDLE;
+			// target.previous.yaw_valid = false;
+			target.previous.yawspeed_valid = false;
+
+			target.previous.timestamp = hrt_absolute_time();
+
+			// memcpy(&(target.current), &(target.previous), sizeof(target.previous));
+			target.current.yaw = NAN;
+			target.current.type = position_setpoint_s::SETPOINT_TYPE_LOITER;
+			target.current.valid = true;
+			target.current.lat = g_pos.lat;
+			target.current.lon = g_pos.lon + 0.0004;
+			target.current.alt = g_pos.alt;
+
+			target.current.loiter_radius = 80.0;
+			target.current.acceptance_radius = 2.0;
+			target.current.timestamp = hrt_absolute_time();
+
+			memcpy(&(target.next), &(target.current), sizeof(target.current));
+			target.next.valid = false;
+
+			target.timestamp = hrt_absolute_time();
+			orb_publish(ORB_ID(trajectory_setpoint_lhx), trajectory_pub, &target);
+			break;
 		}
 
 		parameters_update();
 	}
 
-	orb_unsubscribe(sensor_combined_sub);
+	orb_unsubscribe(global_pos_sub);
 }
 
 void LhxTestModule::parameters_update(bool force)

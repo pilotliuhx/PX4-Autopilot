@@ -184,6 +184,7 @@ set(msg_files
 	TimesyncStatus.msg
 	TrajectoryBezier.msg
 	TrajectorySetpoint.msg
+	TrajectorySetpoint_lhx.msg
 	TrajectoryWaypoint.msg
 	TransponderReport.msg
 	TuneControl.msg
