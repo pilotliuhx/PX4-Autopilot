@@ -7,6 +7,7 @@
 #include <uORB/topics/trajectory_setpoint_lhx.h>
 #include <uORB/topics/position_setpoint.h>
 #include <uORB/topics/yaw_estimator_status.h>
+#include <uORB/topics/vehicle_global_position.h>
 
 using namespace time_literals;
 
@@ -38,6 +39,7 @@ public:
 	/** @see ModuleBase::print_status() */
 	int print_status() override;
 
+	static const position_setpoint_s empty_position_setpoint;
 private:
 
 	/**
@@ -47,7 +49,7 @@ private:
 	 */
 	void parameters_update(bool force = false);
 
-
+	void record_a();
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::SYS_AUTOSTART>) _param_sys_autostart,   /**< example parameter */
 		(ParamInt<px4::params::SYS_AUTOCONFIG>) _param_sys_autoconfig  /**< another parameter */
@@ -56,5 +58,9 @@ private:
 	// Subscriptions
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
+
+	vehicle_global_position_s _global_pos;
+	vehicle_global_position_s _global_pos_a;
+	vehicle_global_position_s _global_pos_b;
 };
 

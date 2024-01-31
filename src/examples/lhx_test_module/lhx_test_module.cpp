@@ -7,8 +7,10 @@
 
 #include <drivers/drv_hrt.h>
 
-#include <uORB/topics/parameter_update.h>
-#include <uORB/topics/vehicle_global_position.h>
+
+const position_setpoint_s LhxTestModule::empty_position_setpoint = {0, NAN, NAN, 0, 0, 0, NAN, NAN, 0, 80.0,
+	2.0, -1.0, NAN, false, position_setpoint_s::SETPOINT_TYPE_IDLE,
+		false, false, false, false, false};
 
 int LhxTestModule::print_status()
 {
@@ -17,21 +19,25 @@ int LhxTestModule::print_status()
 
 	return 0;
 }
-
+void LhxTestModule::record_a()
+{
+	memcpy(&_global_pos_a, &_global_pos, sizeof(_global_pos));
+	PX4_INFO("Record point A, Lat: %.6f \t Lon: %.6f", _global_pos_a.lat, _global_pos_a.lon);
+}
 int LhxTestModule::custom_command(int argc, char *argv[])
 {
-	/*
+
 	if (!is_running()) {
 		print_usage("not running");
 		return 1;
 	}
 
 	// additional custom commands can be handled like this:
-	if (!strcmp(argv[0], "do-something")) {
-		get_instance()->do_something();
+	if (!strcmp(argv[0], "RA")) {
+		get_instance()->record_a();
 		return 0;
 	}
-	 */
+
 
 	return print_usage("unknown command");
 }
@@ -111,9 +117,10 @@ void LhxTestModule::run()
 	orb_set_interval(global_pos_sub, 500);
 
 	int yaw_sub = orb_subscribe(ORB_ID(yaw_estimator_status));
-	trajectory_setpoint_lhx_s target{};
+	trajectory_setpoint_lhx_s target{0, empty_position_setpoint, empty_position_setpoint,
+		empty_position_setpoint};
 	// memset(&target, 0, sizeof(target));
-	orb_advert_t trajectory_pub = orb_advertise(ORB_ID(trajectory_setpoint_lhx), &target);
+	// orb_advert_t trajectory_pub = orb_advertise(ORB_ID(trajectory_setpoint_lhx), &target);
 
 	px4_pollfd_struct_t fds[2];
 	fds[0].fd = global_pos_sub;
@@ -140,17 +147,16 @@ void LhxTestModule::run()
 
 		} else if (fds[0].revents & POLLIN) {
 
-			vehicle_global_position_s g_pos;
-			orb_copy(ORB_ID(vehicle_global_position), global_pos_sub, &g_pos);
+			orb_copy(ORB_ID(vehicle_global_position), global_pos_sub, &_global_pos);
 
 			yaw_estimator_status_s yaw_status;
 			orb_copy(ORB_ID(yaw_estimator_status), yaw_sub, &yaw_status);
 
 			// TODO: do something with the data...
 			target.previous.yaw = yaw_status.yaw[0];
-			target.previous.lat = g_pos.lat;
-			target.previous.lon = g_pos.lon;
-			target.previous.alt = g_pos.alt;
+			target.previous.lat = _global_pos.lat;
+			target.previous.lon = _global_pos.lon;
+			target.previous.alt = _global_pos.alt;
 			// target.previous.loiter_radius = 80.0;
 			// target.previous.acceptance_radius = 2.0;
 			// target.previous.cruising_speed = -1.0;
@@ -166,9 +172,9 @@ void LhxTestModule::run()
 			target.current.yaw = NAN;
 			target.current.type = position_setpoint_s::SETPOINT_TYPE_LOITER;
 			target.current.valid = true;
-			target.current.lat = g_pos.lat;
-			target.current.lon = g_pos.lon + 0.0004;
-			target.current.alt = g_pos.alt;
+			target.current.lat = _global_pos.lat;
+			target.current.lon = _global_pos.lon + 0.0004;
+			target.current.alt = _global_pos.alt;
 
 			target.current.loiter_radius = 80.0;
 			target.current.acceptance_radius = 2.0;
@@ -178,8 +184,8 @@ void LhxTestModule::run()
 			target.next.valid = false;
 
 			target.timestamp = hrt_absolute_time();
-			orb_publish(ORB_ID(trajectory_setpoint_lhx), trajectory_pub, &target);
-			break;
+			// orb_publish(ORB_ID(trajectory_setpoint_lhx), trajectory_pub, &target);
+			// break;
 		}
 
 		parameters_update();
