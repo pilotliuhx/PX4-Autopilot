@@ -19,11 +19,33 @@ int LhxTestModule::print_status()
 
 	return 0;
 }
+
 void LhxTestModule::record_a()
 {
 	memcpy(&_global_pos_a, &_global_pos, sizeof(_global_pos));
 	PX4_INFO("Record point A, Lat: %.6f \t Lon: %.6f", _global_pos_a.lat, _global_pos_a.lon);
 }
+
+void LhxTestModule::record_b()
+{
+	memcpy(&_global_pos_b, &_global_pos, sizeof(_global_pos));
+	PX4_INFO("Record point B, Lat: %.6f \t Lon: %.6f", _global_pos_b.lat, _global_pos_b.lon);
+}
+
+void LhxTestModule::go_left()
+{
+	_direction = LEFT;
+	_mission_start = true;
+	PX4_INFO("AB waypoint started, go left!");
+}
+
+void LhxTestModule::go_right()
+{
+	_direction = RIGHT;
+	_mission_start = true;
+	PX4_INFO("AB waypoint started, go right!");
+}
+
 int LhxTestModule::custom_command(int argc, char *argv[])
 {
 
@@ -37,7 +59,18 @@ int LhxTestModule::custom_command(int argc, char *argv[])
 		get_instance()->record_a();
 		return 0;
 	}
-
+	else if (!strcmp(argv[0], "RB")) {
+		get_instance()->record_b();
+		return 0;
+	}
+	else if (!strcmp(argv[0], "GoL")) {
+		get_instance()->go_left();
+		return 0;
+	}
+	else if (!strcmp(argv[0], "GoR")) {
+		get_instance()->go_right();
+		return 0;
+	}
 
 	return print_usage("unknown command");
 }
@@ -148,9 +181,28 @@ void LhxTestModule::run()
 		} else if (fds[0].revents & POLLIN) {
 
 			orb_copy(ORB_ID(vehicle_global_position), global_pos_sub, &_global_pos);
-
+			if(!_geo_projection.isInitialized())
+			{
+				_geo_projection.initReference(_global_pos.lat, _global_pos.lon);
+			}
 			yaw_estimator_status_s yaw_status;
 			orb_copy(ORB_ID(yaw_estimator_status), yaw_sub, &yaw_status);
+			float dist = 0.0;
+			float distz = 0.0;
+			// PX4_INFO("current lat: %.6f, current lon: %.6f", _global_pos.lat, _global_pos.lon);
+			if(_mission_start)
+			{
+				get_distance_to_point_global_wgs84(_global_pos.lat, _global_pos.lon, 0.0,
+				_global_pos_b.lat, _global_pos_b.lon, 0.0, &dist, &distz);
+				PX4_INFO("distance to point B: %.4f m", double(dist));
+				if(dist < 0.5f)
+				{
+					// matrix::Vector2f current_pos = _geo_projection.project(_global_pos.lat, _global_pos.lon);
+					matrix::Vector2f point_a = _geo_projection.project(_global_pos_a.lat, _global_pos_a.lon);
+					matrix::Vector2f point_b = _geo_projection.project(_global_pos_b.lat, _global_pos_b.lon);
+					update_ab(point_a, point_b);
+				}
+			}
 
 			// TODO: do something with the data...
 			target.previous.yaw = yaw_status.yaw[0];
@@ -194,6 +246,10 @@ void LhxTestModule::run()
 	orb_unsubscribe(global_pos_sub);
 }
 
+void LhxTestModule::update_ab(matrix::Vector2f a, matrix::Vector2f b)
+{
+
+}
 void LhxTestModule::parameters_update(bool force)
 {
 	// check for parameter updates
